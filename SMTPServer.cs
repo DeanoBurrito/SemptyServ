@@ -9,7 +9,9 @@ namespace SemptyServ
 {
     public sealed class SMTPServer
     {   
-        List<ReceivedEmail> receivedEmails = new List<ReceivedEmail>();
+        public event Action<int> EmailReceived;
+        
+        public List<ReceivedEmail> receivedEmails = new List<ReceivedEmail>();
         bool allowESMTP;
         int listeningPort;
         string ownerDomain;
@@ -52,13 +54,14 @@ namespace SemptyServ
             while (closeQueue.TryDequeue(out tryOut))
             {
                 Logger.Debug?.WriteLine("Closing session " + tryOut);
-                currSessions.Remove(tryOut, out _);
+                ValidConnection conn;
+                currSessions.Remove(tryOut, out conn);
+                conn.Shutdown();
             }
         }
 
         public void Shutdown()
         {
-            //TODO: implement
             foreach (int id in currSessions.Keys)
                 closeQueue.Enqueue(id);
             MessagePump(); //quick and dirty flush of current connections
@@ -82,7 +85,7 @@ namespace SemptyServ
             }
             ReceivedEmail email = receivedEmails[index];
             Console.WriteLine("-------- EMAIL BEGINS --------");
-            Console.WriteLine("Recieved at: " + email.receivedTime.ToString());
+            Console.WriteLine("Received at: " + email.receivedTime.ToString());
             Console.WriteLine("From: " + email.sender);
             Console.WriteLine("To: " + email.recipient);
             Console.WriteLine("Subject: " + email.subject);
@@ -141,6 +144,11 @@ namespace SemptyServ
         {
             Logger.Info?.WriteLine("Server received mail from: " + mail.sender);
             receivedEmails.Add(mail);
+
+            if (EmailReceived != null)
+            {
+                EmailReceived(receivedEmails.Count - 1);
+            }
         }
     }
 }

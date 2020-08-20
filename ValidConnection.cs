@@ -39,6 +39,16 @@ namespace SemptyServ
             }
         }
 
+        internal void Shutdown()
+        {
+            try
+            {
+                SendResponse(SMTPResponseCode.ServerDisconnecting, "Server is shutting down.");
+            }
+            catch (Exception e)
+            {} //dont care about it since we're closing the connection anyway.
+        }
+
         private void ProcessRecvData(IAsyncResult result)
         {
             try
@@ -74,7 +84,7 @@ namespace SemptyServ
                     return;
                 }
             
-                
+
                 currMail.messageBody.Add(cmdStr);
                 if (cmdStr.Contains("\r\n.\r\n"))
                 {
