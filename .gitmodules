@@ -1,0 +1,3 @@
+[submodule "CliMod"]
+	path = CliMod
+	url = https://github.com/DeanoBurrito/CliMod
