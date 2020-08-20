@@ -19,21 +19,12 @@ namespace SemptyServ
         TcpListener tcpListener;
         ConcurrentDictionary<int, ValidConnection> currSessions = new ConcurrentDictionary<int, ValidConnection>();
         ConcurrentQueue<int> closeQueue = new ConcurrentQueue<int>();
-
-        internal static SMTPServer localInst;
         
         public SMTPServer(string domain, int incomingPort = 25, bool supportExts = true)
         {
             listeningPort = incomingPort;
             allowESMTP = supportExts;
             ownerDomain = domain;
-            if (localInst == null)
-                localInst = this;
-            else
-            {
-                Logger.Critical?.WriteLine("SMTP server already running within this process. Please startup another process instance.");
-                return;
-            }
 
             try
             {
@@ -121,6 +112,7 @@ namespace SemptyServ
             while (currSessions.ContainsKey(sessionId))
                 sessionId = r.Next();
             ValidConnection vc = new ValidConnection(newClient, allowESMTP, sessionId, ownerDomain);
+            vc.ownerServer = this;
             while (!currSessions.TryAdd(sessionId, vc))
             {
                 //something already exists with this key, reassign and then re-add
@@ -132,7 +124,9 @@ namespace SemptyServ
 
         public string GetStatus()
         {
-            return "SMTP server status: Doing fine, how about you?";
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.Append("unread= " + receivedEmails.Count + ", domain=" + ownerDomain + ", port=" + listeningPort + ", sessions=" + currSessions.Count);
+            return sb.ToString();
         }
 
         internal void QueueEndSession(int localId)
@@ -144,11 +138,7 @@ namespace SemptyServ
         {
             Logger.Info?.WriteLine("Server received mail from: " + mail.sender);
             receivedEmails.Add(mail);
-
-            if (EmailReceived != null)
-            {
-                EmailReceived(receivedEmails.Count - 1);
-            }
+            EmailReceived?.Invoke(receivedEmails.Count - 1);
         }
     }
 }

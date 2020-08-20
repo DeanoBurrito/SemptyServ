@@ -6,14 +6,16 @@ namespace SemptyServ
 {
     public class ValidConnection
     {
-        public TcpClient tcpClient;
-        public bool allowESMTP;
-        public int localSessionId;
-        public string domain;
+        TcpClient tcpClient;
+        bool allowESMTP;
+        internal int localSessionId;
+        string domain;
 
         string foreignDomain = "";
         ReceivedEmail currMail = null;
         bool recievingBody = false;
+
+        internal SMTPServer ownerServer;
 
         byte[] recvBuffer;
         
@@ -35,7 +37,7 @@ namespace SemptyServ
             catch (Exception e)
             {
                 Logger.Critical?.WriteLine("Critical error in recieving tcp data: " + e.ToString());
-                SMTPServer.localInst.QueueEndSession(sessionId);
+                ownerServer.QueueEndSession(sessionId);
             }
         }
 
@@ -45,7 +47,7 @@ namespace SemptyServ
             {
                 SendResponse(SMTPResponseCode.ServerDisconnecting, "Server is shutting down.");
             }
-            catch (Exception e)
+            catch
             {} //dont care about it since we're closing the connection anyway.
         }
 
@@ -68,7 +70,7 @@ namespace SemptyServ
             catch (Exception e)
             {
                 Logger.Critical?.WriteLine("Critical error during tcp read: " + e.ToString());
-                SMTPServer.localInst.QueueEndSession(localSessionId);
+                ownerServer.QueueEndSession(localSessionId);
                 return;
             }
         }
@@ -80,7 +82,7 @@ namespace SemptyServ
                 if (currMail.messageBody.Count > 10000)
                 {
                     SendResponse(SMTPResponseCode.ServerDisconnecting, "Send over 10,000 lines in message, as if.");
-                    SMTPServer.localInst.QueueEndSession(localSessionId);
+                    ownerServer.QueueEndSession(localSessionId);
                     return;
                 }
             
@@ -90,7 +92,7 @@ namespace SemptyServ
                 {
                     recievingBody = false;
                     SendResponse(SMTPResponseCode.CommandOK, "OK, message data accepted.");
-                    SMTPServer.localInst.NotifyReceivedMail(currMail);
+                    ownerServer.NotifyReceivedMail(currMail);
                     currMail = new ReceivedEmail();
                     return;
                 }
@@ -154,7 +156,7 @@ namespace SemptyServ
                     break;
                 case "QUIT":
                     SendResponse(SMTPResponseCode.ServerDisconnecting, "bye bye.");
-                    SMTPServer.localInst.QueueEndSession(localSessionId);
+                    ownerServer.QueueEndSession(localSessionId);
                     break;
                 case "RSET":
                     currMail = new ReceivedEmail();
