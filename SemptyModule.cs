@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CliMod;
 
 namespace SemptyServ
@@ -69,6 +70,32 @@ Source is released under MIT license.
             }
             Console.WriteLine("Local server status as follows:");
             Console.WriteLine(localServer.GetStatus());
+        }
+
+        public static void DisplayMail(string[] args)
+        {
+            if (localServer == null)
+                return;
+            
+            const int DISPLAY_COUNT = 20;
+            const int COLUMN_WIDTH = 20;
+            List<ReceivedEmail> recvMail = new List<ReceivedEmail>(localServer.receivedEmails.ToArray()); //force it to copy to an array (separate copy in memory)
+            int iteratorBase = Math.Clamp(recvMail.Count - DISPLAY_COUNT, 0, int.MaxValue - DISPLAY_COUNT);
+            for (int i = iteratorBase; i < recvMail.Count; i++)
+            {
+                Console.WriteLine("TODO: Finish implementing this!");
+            }
+        }
+
+        private static string FixStringWidth(string str, int width, string overflow = " ... ", bool preserveStart = true)
+        {
+            if (str.Length <= width)
+                return str;
+            if (preserveStart)
+                str = str.Remove(str.Length - width - overflow.Length) + overflow;
+            else //preserve the end of the string
+                str = overflow + str.Remove(0, str.Length - width - overflow.Length);
+            return str;
         }
     }
 }

@@ -47,7 +47,7 @@ namespace SemptyServ
                 Logger.Debug?.WriteLine("Closing session " + tryOut);
                 ValidConnection conn;
                 currSessions.Remove(tryOut, out conn);
-                conn.Shutdown();
+                conn?.Shutdown();
             }
         }
 
