@@ -8,7 +8,6 @@ namespace SemptyServ
         public string sender = "null";
         public string recipient = "null";
         public DateTime receivedTime = DateTime.Now;
-        public string subject = "null";
         public List<string> messageBody = new List<string>();
         public List<string> senderInfo = new List<string>();
 

@@ -11,6 +11,7 @@ public enum SMTPResponseCode : int
     CannotVerifyUser = 252,
 
     ReadyForData = 354,
+    
     ServerUnavailable = 421,
     MailboxUnavilable = 450,
     CommandErrorServer = 451,
@@ -20,5 +21,29 @@ public enum SMTPResponseCode : int
     CommandNotImplemented = 502,
     CommandSequenceInvalid = 503,
     AuthenticationRequired = 530,
+    UserDoesNotExist = 550,
     TransactionFailed = 554,
+}
+
+public enum SMTPCommand
+{
+    HELO,
+    EHLO,
+    MAIL_FROM,
+    RCPT_TO,
+    DATA,
+    VRFY,
+    NOOP,
+    QUIT,
+    RSET,
+    AUTH,
+    SIZE,
+}
+
+public enum AuthMethod
+{
+    None,
+    Plain,
+    Login,
+    DIGEST_MD5,
 }

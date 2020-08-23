@@ -9,22 +9,28 @@ namespace SemptyServ
 {
     public sealed class SMTPServer
     {   
-        public event Action<int> EmailReceived;
-        
+        internal ISMTPServerHooks serverHooks;
+
         public List<ReceivedEmail> receivedEmails = new List<ReceivedEmail>();
         bool allowESMTP;
         int listeningPort;
-        string ownerDomain;
+        Dictionary<string, string> config = new Dictionary<string, string>() 
+        {
+            { "Domain", "example.com" },
+            { "MaxMessageBytes", "1000000" },
+            { "BufferSize", "4096" },
+        };
 
         TcpListener tcpListener;
-        ConcurrentDictionary<int, ValidConnection> currSessions = new ConcurrentDictionary<int, ValidConnection>();
+        internal ConcurrentDictionary<int, RemoteConnection> currSessions = new ConcurrentDictionary<int, RemoteConnection>();
         ConcurrentQueue<int> closeQueue = new ConcurrentQueue<int>();
         
         public SMTPServer(string domain, int incomingPort = 25, bool supportExts = true)
         {
             listeningPort = incomingPort;
             allowESMTP = supportExts;
-            ownerDomain = domain;
+            config["Domain"] = domain;
+            serverHooks = new DefaultServerHooks();
 
             try
             {
@@ -39,13 +45,20 @@ namespace SemptyServ
             }
         }
 
+        public void SetServerHooks(ISMTPServerHooks hookInterface)
+        {
+            serverHooks = hookInterface;
+            Logger.Debug?.WriteLine("SMTP server hooks updated.");
+        }
+
         public void MessagePump()
         {
             int tryOut;
             while (closeQueue.TryDequeue(out tryOut))
             {
                 Logger.Debug?.WriteLine("Closing session " + tryOut);
-                ValidConnection conn;
+                
+                RemoteConnection conn;
                 currSessions.Remove(tryOut, out conn);
                 conn?.Shutdown();
             }
@@ -79,7 +92,6 @@ namespace SemptyServ
             Console.WriteLine("Received at: " + email.receivedTime.ToString());
             Console.WriteLine("From: " + email.sender);
             Console.WriteLine("To: " + email.recipient);
-            Console.WriteLine("Subject: " + email.subject);
             Console.WriteLine("Additional info: ");
             for (int i = 0; i < email.senderInfo.Count; i++)
             {
@@ -111,25 +123,23 @@ namespace SemptyServ
             int sessionId = r.Next();
             while (currSessions.ContainsKey(sessionId))
                 sessionId = r.Next();
-            ValidConnection vc = new ValidConnection(newClient, allowESMTP, sessionId, ownerDomain);
-            vc.ownerServer = this;
-            while (!currSessions.TryAdd(sessionId, vc))
+            RemoteConnection connection = new RemoteConnection(newClient, config, this, sessionId);
+            while (!currSessions.TryAdd(sessionId, connection))
             {
                 //something already exists with this key, reassign and then re-add
-                sessionId = r.Next();
-                vc.localSessionId = sessionId;
+                connection.connId = r.Next();
             }
-            Logger.Info?.WriteLine("New SMTP session created with local id: " + sessionId);
+            Logger.Info?.WriteLine("New SMTP session created with local id: " + connection.connId);
         }
 
         public string GetStatus()
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.Append("unread= " + receivedEmails.Count + ", domain=" + ownerDomain + ", port=" + listeningPort + ", sessions=" + currSessions.Count);
+            sb.Append("unread= " + receivedEmails.Count + ", domain=" + config["Domain"] + ", port=" + listeningPort + ", sessions=" + currSessions.Count);
             return sb.ToString();
         }
 
-        internal void QueueEndSession(int localId)
+        internal void QueueEndConnection(int localId)
         {
             closeQueue.Enqueue(localId);
         }
@@ -138,7 +148,7 @@ namespace SemptyServ
         {
             Logger.Info?.WriteLine("Server received mail from: " + mail.sender);
             receivedEmails.Add(mail);
-            EmailReceived?.Invoke(receivedEmails.Count - 1);
+            serverHooks.NewMailReceived(mail.recipient, mail);
         }
     }
 }

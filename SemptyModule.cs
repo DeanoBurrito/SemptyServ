@@ -72,20 +72,52 @@ Source is released under MIT license.
             Console.WriteLine(localServer.GetStatus());
         }
 
+        [CLICommand("view", "View a received email in all its glory")]
         public static void DisplayMail(string[] args)
         {
             if (localServer == null)
                 return;
             
-            const int DISPLAY_COUNT = 20;
-            const int COLUMN_WIDTH = 20;
-            List<ReceivedEmail> recvMail = new List<ReceivedEmail>(localServer.receivedEmails.ToArray()); //force it to copy to an array (separate copy in memory)
-            int iteratorBase = Math.Clamp(recvMail.Count - DISPLAY_COUNT, 0, int.MaxValue - DISPLAY_COUNT);
-            for (int i = iteratorBase; i < recvMail.Count; i++)
+            if (args.Length > 0 && int.TryParse(args[0], out int idx))
+                localServer.DisplayEmail(idx);
+            else
+                localServer.DisplayEmail();
+        }
+
+        [CLICommand("dump", "dumps any currently in progress session details.")]
+        public static void DumpSessions(string[] args)
+        {
+            if (localServer == null)
             {
-                Console.WriteLine("TODO: Finish implementing this!");
+                Console.WriteLine("No local SMTP instance running.");
+                return;
+            }
+            
+            foreach (KeyValuePair<int, RemoteConnection> rc in localServer.currSessions)
+            {
+                try
+                {
+                    Console.WriteLine("[Session " + rc.Key + "]");
+                    Console.WriteLine("AuthMethod: " + rc.Value.currSession?.authMethod.ToString());
+                    Console.WriteLine("RemoteEndpoint: " + rc.Value.tcpClient.Client.RemoteEndPoint.ToString());
+                    Console.WriteLine("BodyBuffer: " + rc.Value.currSession?.messageBuffer);
+                    Console.WriteLine("SMTP-From: " + rc.Value.currSession?.sender);
+                    foreach (string r in rc.Value.currSession?.recipients)
+                    {
+                        Console.WriteLine("SMTP-To: " + r);
+                    }
+                }
+                catch
+                { 
+                    Console.WriteLine("[Error occured reading session data]");
+                    continue; 
+                }
             }
         }
+
+        [CLICommand("log", "Shows a specific SMTP transaction. Negative numbers go backwards from latest.")]
+        public static void ShowTransaction(string[] args)
+        {}
 
         private static string FixStringWidth(string str, int width, string overflow = " ... ", bool preserveStart = true)
         {
