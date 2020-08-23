@@ -19,11 +19,14 @@ namespace SemptyServ
             { "Domain", "example.com" },
             { "MaxMessageBytes", "1000000" },
             { "BufferSize", "4096" },
+            { "TransactionLogLen", "16" },
         };
 
         TcpListener tcpListener;
         internal ConcurrentDictionary<int, RemoteConnection> currSessions = new ConcurrentDictionary<int, RemoteConnection>();
         ConcurrentQueue<int> closeQueue = new ConcurrentQueue<int>();
+
+        ConcurrentQueue<string[]> transactionLog = new ConcurrentQueue<string[]>();
         
         public SMTPServer(string domain, int incomingPort = 25, bool supportExts = true)
         {
@@ -104,6 +107,13 @@ namespace SemptyServ
             Console.WriteLine("-------- EMAIL ENDS --------");
         }
 
+        public Queue<string[]> GetTransactionLog()
+        {
+            string[][] copy = new string[transactionLog.Count][];
+            transactionLog.CopyTo(copy, 0);
+            return new Queue<string[]>(copy);
+        }
+
         private void HandleNewTcpConn(IAsyncResult result)
         {
             TcpClient newClient;
@@ -135,7 +145,11 @@ namespace SemptyServ
         public string GetStatus()
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.Append("unread= " + receivedEmails.Count + ", domain=" + config["Domain"] + ", port=" + listeningPort + ", sessions=" + currSessions.Count);
+            sb.Append("unread= " + receivedEmails.Count);
+            sb.Append(", domain=" + config["Domain"]);
+            sb.Append(", port=" + listeningPort);
+            sb.Append(", sessions=" + currSessions.Count);
+            sb.Append(", logLen=" + transactionLog.Count);
             return sb.ToString();
         }
 
@@ -149,6 +163,16 @@ namespace SemptyServ
             Logger.Info?.WriteLine("Server received mail from: " + mail.sender);
             receivedEmails.Add(mail);
             serverHooks.NewMailReceived(mail.recipient, mail);
+        }
+
+        internal void AppendTransactionLog(string[] transDetails)
+        {
+            int logLength = int.Parse(config["TransactionLogLen"]);
+            while (transactionLog.Count >= logLength)
+            {
+                transactionLog.TryDequeue(out _); //cull from the front of the queue
+            }
+            transactionLog.Enqueue(transDetails);
         }
     }
 }

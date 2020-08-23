@@ -17,6 +17,7 @@ namespace SemptyServ
         internal SMTPSession currSession;
 
         bool shutdownQueued = false;
+        List<string> connLog = new List<string>();
 
         public RemoteConnection(TcpClient client, Dictionary<string, string> config, SMTPServer owner, int connectionId)
         {
@@ -50,6 +51,7 @@ namespace SemptyServ
 
         public void Shutdown()
         {
+            ownerServer.AppendTransactionLog(connLog.ToArray());
             SendResponse(new SMTPResult(SMTPResponseCode.ServerDisconnecting, serverConfig["Domain"] + " disconnecting. Goodbye."));
         }
 
@@ -68,6 +70,7 @@ namespace SemptyServ
                 string recvText = System.Text.Encoding.ASCII.GetString(recvBuff, 0, recvLen);
                 tcpStream.BeginRead(recvBuff, 0, recvBuff.Length, ProcessRecvData, null);
                 Logger.Debug?.WriteLine("[<- RECV] " + recvText.Replace("\r\n", ""));
+                connLog.Add("[<- RECV] " + recvText.Replace("\r\n", ""));
 
                 //try executing the received text as a SMTP command
                 TryExecCommand(recvText);
@@ -89,6 +92,7 @@ namespace SemptyServ
             try
             {
                 Logger.Debug?.WriteLine("[SEND ->] " + result.ToString());
+                connLog.Add("[SEND ->] " + result.ToString());
 
                 byte[] encodedReply = System.Text.Encoding.ASCII.GetBytes(result.ToString() + "\r\n");
                 tcpStream.BeginWrite(encodedReply, 0, encodedReply.Length, null, null);
@@ -115,6 +119,7 @@ namespace SemptyServ
                 if (str.Contains("\r\n.\r\n"))
                 {
                     //end of DATA transmission
+                    currSession.messageBuffer = currSession.messageBuffer.Remove(currSession.messageBuffer.Length - 5); //trim the last 5 character (the end of message seq)
                     currSession.readingBody = false;
                     SendResponse(new SMTPResult(SMTPResponseCode.CommandOK, "OK, message queued successfully."));
 

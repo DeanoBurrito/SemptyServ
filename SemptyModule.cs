@@ -117,7 +117,23 @@ Source is released under MIT license.
 
         [CLICommand("log", "Shows a specific SMTP transaction. Negative numbers go backwards from latest.")]
         public static void ShowTransaction(string[] args)
-        {}
+        {
+            if (localServer == null)
+            {
+                Console.WriteLine("No local SMTP instance running.");
+                return;
+            }
+
+            Queue<string[]> logQueue = localServer.GetTransactionLog();
+
+            while (logQueue.Count > 0)
+            {
+                string[] currTrans = logQueue.Dequeue();
+                Console.WriteLine("-------- New Transaction ---------");
+                for (int i = 0; i < currTrans.Length; i++)
+                    Console.WriteLine(currTrans[i]);
+            }
+        }
 
         private static string FixStringWidth(string str, int width, string overflow = " ... ", bool preserveStart = true)
         {
